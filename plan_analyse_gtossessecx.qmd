@@ -1,0 +1,117 @@
+---
+title: "Grossesse_Cx"
+subtitle: "Plan d'analyse statistique"
+author: "Philippe MICHEL"
+date: "`r format(Sys.Date(),'%d %B %Y')`"
+html:
+  toc: true
+  html-math-method: katex
+format: pdf
+pdf-engine: lualatex
+keep-tex: true
+number-sections: true
+toc: false
+lof: false
+lot: false
+mainfont: Minion Pro
+mainfontoptions:
+  - Numbers=OldStyle
+  - Ligatures=TeX
+  - Ligatures= Rare
+  - Ligatures= Historic
+  - Style=Alternate
+  - Contextuals = Swash
+sansfont: Myriad Pro
+sansfontoptions:
+  - Ligatures=TeX
+mathfontoptions: 
+  - Numbers=Proportional
+fig-cap-location: bottom
+tbl-cap-location: top
+class: scrartcl
+classoption: [french]
+lang: fr-FR
+papersize: a4paper
+editor: source
+cite-method: biblatex
+bibliography: stat.bib
+license: "CC BY-SA"
+---
+
+```{r setup, include= FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, cache = FALSE,
+ fig.width = 7,
+ fig.asp = 0.8,
+ out.width = "100%"
+)
+```
+
+```{r info}
+rm(list=ls())
+library("baseph")
+library("tidyverse")
+library("kableExtra")
+# sessionInfo()
+```
+
+Ce document ne concerne que l'analyse statistique des données.
+
+Le risque $\alpha$ retenu sera de 0,05 & la puissance de 0,8.
+
+Des graphiques seront réalisés pour présenter les résultats importants.
+
+# Nombre de sujets nécessaires. 
+
+Le critère principal est le choix d'un professionnel de santé par les femmes pendant leur grossesse. Le choix possible comprend trois possibilités : 
+
+- Médecin généraliste
+- Médecin gynécologue médical
+- Médecin gynécologue obstétricien
+- Sage-femme
+- Autre
+
+Pour une première comparaison par un test de $\chi^2$ un effectif de 400 cas parait raisonnable. Si on prévoit qu'un des groupe sera très différents des autres 300 cas peuvent suffire. Mais ce premier résultat ne permettra d'affirmer que l'existence probable d'une  différence entre les groupes (si le test est significatif) mais pas de dire qu'un groupe est différent des quatre autres ou de classer les groupes. Pour cela il faudra alors faire d'autres tests ($\chi^2$ le plus souvent), répétés, avec alors une perte de puissance.
+
+Si le premier test ne renvoie pas une p.value significative, le résultat est alors négatif & l’analyse s’arrête là.
+
+## Description de la population
+
+### Analyse simple
+
+La description de la population concerne :
+
+
+Plusieurs tableaux descriptifs simples seront réalisés. Des graphiques de distribution pourront être réalisés pour les items les plus importants.
+
+Une recherche de corrélation entre les variable sera réalisée, celles-ci devant être prises en compte pour l'analyse factorielle ou les régressions.
+
+### Analyse factorielle
+
+Si le nombre de cas recueillis le permet une analyse factorielle en MCA (Analyse de correspondances multiples) sera réalisée. On essayera en particulier de voir si les femmes ayant choisi d'être suivi par un MG représente un groupe particulier. 
+
+Cette analyse ne pourra être qu'après transformation des variables numériques en catégories & imputation des données manquantes ce qui n'est possible que si ces dernières ne sont pas trop nombreuses.
+
+## Objectif principal
+
+L'analyse du critère principal (choix du professionnel par la femme) sera réalisé par un test du $\chi^2$ si les effectifs sont suffisants, sinon par un test non paramétrique de Wilcoxon.  Uniquement si ce premier test global retourne une p.value significative des test complémentaires seront effectués pour chercher si un choix est différent des autres, en particulier suivi par son MG vs les autres professionnels. 
+ 
+Une analyse simple (test de $\chi^2$ ou de Wilcoxon) sera réalisée pour rechercher d'éventuels facteurs pronostics.
+
+
+### Analyse par régression
+
+Une analyse multivariée par régression logistique sera réalisée en y incorporant les toutes les variables ayant une p-value \< 0,20 sur l'analyse monovariée.
+
+Une analyse multivariée des courbes de survie (modèle de Cox) sera réalisée sur les mêmes critères.
+
+## Objectifs secondaires
+
+Les objectifs secondaires sont l'étude de facteurs influant cette décision. Les comparaison seront faites par des tests de $\chi^2$ pour les onze items.
+
+L'analyse du suivi par le médecin généraliste sera uniquement descriptive. 
+Si le nombre de femme ayant choisi le MG pour leur suivi de grossesse est suffisant( > 30) une comparaison entre ce groupe & les autres participantes sera réalisé par des analyses par des tests de  $\chi^2$.
+
+## Technique {.appendix}
+
+L'analyse statistique sera réalisée avec le logiciel **R**[@rstat] & divers packages en particulier `tidyverse` [@tidy], `FactoMineR` [@facto] & `epiDisplay` [@epid].
+
