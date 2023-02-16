@@ -117,21 +117,26 @@ Une analyse simple sera réalisée pour rechercher d'éventuels facteurs pronost
 
 ### Analyse par régression
 
-Un modèle de régression logistique sera employé. On utilisera si possible un modèle binomial (après vérification des hypothèses de normalité et d’homoscédasticité des résidus) sinon un modèle pseudo-binomial. Ce modèle de régression permettra d’explorer les facteurs associés à la réponse en utilisant les critères ayant une la réponse significative avec un seuil p.value = 0,2 lors de l'étape précédente. Une recherche du meilleur modèle sera réalisée par un step-by-step descendant évaluée par le critère d’information d’Akaike. Cette étape sera réalisée après imputation des données manquantes mais le résultat final sera calculé sur les données vraies. 
+Le modèle sera simplifié si : 
+
+- Un des choix est prédominant (> 40%) auquel cas la comparaison sera faite sur un modèle de régression logistique (si possible) comparant le choix majoritaire à la somme de tous les autres. . 
+
+- Un des choix est très rarement choisi (< 10 %). Ce choix sera alors incorporé au choix `Autres`.
+
+Un modèle de régression logistique multinomiale sera employé (package `VGAM` [@vgam]). Ce modèle de régression permettra d’explorer les facteurs associés à la réponse en utilisant les critères ayant une la réponse significative avec un seuil p.value = 0,2 lors de l'étape précédente. Une recherche du meilleur modèle sera réalisée par un step-by-step descendant évaluée par le critère d’information d’Akaike. Cette étape sera réalisée après imputation des données manquantes mais le résultat final sera calculé sur les données vraies. 
 
 ## Objectifs secondaires
 
 Les objectifs secondaires sont l'étude de facteurs influant cette décision. Les comparaison seront faites par des tests de $\chi^2$ pour les onze items.
 
-L'analyse du suivi par le médecin généraliste sera uniquement descriptive.  Si le nombre de femme ayant choisi le MG pour leur suivi de grossesse est suffisant( > 30) une comparaison entre ce groupe & les autres participantes sera réalisé par des analyses par des tests de  $\chi^2$ en reprenant les items des trois parties.
+L'analyse du suivi par le médecin généraliste sera uniquement descriptive.  Si le nombre de femmes ayant choisi le MG pour leur suivi de grossesse est suffisant( > 30) une comparaison entre ce groupe & les autres participantes sera réalisé par des analyses par des tests de  $\chi^2$ en reprenant les items des trois parties.
 
-
-Un modèle de régression logistique sera employé. On utilisera si possible modèle binomial (après vérification des hypothèses de normalité et d’homoscédasticité des résidus) sinon un modèle pseudo-binomial sera employé. Ce modèle de régression permettra d’explorer les facteurs associés à la réponse en utilisant les critères ayant une la réponse significative à p=0,2 lors de l'étape précédente. Une recherche du meilleur modèle sera réalisée par un step-by-step descendant évaluée par le critère d’information d’Akaike. Cette étape sera réalisée après imputation des données manquantes mais le résultat final sera calculé sur les données vraies.
+Un modèle de régression logistique sera employé (choix MG vs autres choix). On utilisera si possible modèle binomial (après vérification des hypothèses de normalité et d’homoscédasticité des résidus) sinon un modèle pseudo-binomial sera employé. Ce modèle de régression permettra d’explorer les facteurs associés à la réponse en utilisant les critères ayant une la réponse significative à p=0,2 lors de l'étape précédente. Une recherche du meilleur modèle sera réalisée par un step-by-step descendant évaluée par le critère d’information d’Akaike. Cette étape sera réalisée après imputation des données manquantes mais le résultat final sera calculé sur les données vraies.
 
 ## Technique {.appendix}
 
-L'analyse statistique sera réalisée avec le logiciel **R**[@rstat] & divers packages en particulier `tidyverse` [@tidy], `FactoMineR` [@facto] & `epiDisplay` [@epid].
+L'analyse statistique sera réalisée avec le logiciel **R**[@rstat] & divers packages. Outre cuex cités dnas le texte ou utilisera en particulier `tidyverse` [@tidy] & `baseph` [@baseph].
 
-Un dépôt GIT sera utilisé qui ne comprendra que le code & non les données ou résultats. Au besoin un faux tableau de données sera présent pour permettre des tests.
+Un dépôt GitHub sera utilisé qui ne comprendra que le code & non les données ou résultats. Au besoin un faux tableau de données sera présenté pour permettre des tests.
 
 <https://github.com/philippemichel/Grossesse_Cx>
