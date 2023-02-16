@@ -1,41 +1,51 @@
 ---
 title: "Grossesse_Cx"
 subtitle: "Plan d'analyse statistique"
-author: "Philippe MICHEL"
-date: "`r format(Sys.Date(),'%d %B %Y')`"
-html:
-  toc: true
-  html-math-method: katex
-format: pdf
+author: 
+    name : "Philippe MICHEL"
+    affiliations:
+      name: "Hôpital NOVO"
+      department: "USRC"
+lang: fr-FR
+date: today
+date-format: "DD/MM/YYYY"
+format: 
+  titlepage-pdf:
+    titlepage: bg-image
+    titlepage-bg-image: "novo_usrc.png"
+    logo-space-after: "0\\baselineskip"
+    titlepage-footer: "Dr Corinne SIVARD \\newline Dr Laurine CLEDASSOU -- Service des urgences (Pontoise) \\newline  Dr Olivier FANCELLI -- Service des Urgences (Pontoise) "
+    documentclass: scrartcl
+    classoption: ["oneside", "open=any"]
+    number-sections: true
+titlepage-theme:
+    title-fontstyle: ["huge", "bfseries"]
+    subtitle-fontstyle: ["Large"]
+    logo-size: "0.2\\textheight"
+jss-pdf:
+    keep-tex: true   
 pdf-engine: lualatex
 keep-tex: true
 number-sections: true
 toc: false
 lof: false
 lot: false
-mainfont: Minion Pro
+mainfont: Faune
 mainfontoptions:
   - Numbers=OldStyle
   - Ligatures=TeX
-  - Ligatures= Rare
-  - Ligatures= Historic
-  - Style=Alternate
-  - Contextuals = Swash
 sansfont: Myriad Pro
 sansfontoptions:
   - Ligatures=TeX
-mathfontoptions: 
-  - Numbers=Proportional
 fig-cap-location: bottom
 tbl-cap-location: top
-class: scrartcl
 classoption: [french]
-lang: fr-FR
 papersize: a4paper
 editor: source
-cite-method: biblatex
 bibliography: stat.bib
+cite-method: biblatex
 license: "CC BY-SA"
+---
 ---
 
 ```{r setup, include= FALSE}
@@ -54,15 +64,16 @@ library("kableExtra")
 # sessionInfo()
 ```
 
-Ce document ne concerne que l'analyse statistique des données.
+## Généralités
 
 Le risque $\alpha$ retenu sera de 0,05 & la puissance de 0,8.
 
-Des graphiques seront réalisés pour présenter les résultats importants.
+Sauf indication contraires pour les tests simples les variables toutes catégorielles) seront comparées par des tests du $\chi^2$ sous réserve d'un effectif suffisant. À défaut un test de Fischer sera utilisé. Des graphiques seront réalisés pour les résultats importants (package `ggplot2` [@ggplot]).
 
-# Nombre de sujets nécessaires. 
+## Taille de l'échantillon
+ 
 
-Le critère principal est le choix d'un professionnel de santé par les femmes pendant leur grossesse. Le choix possible comprend trois possibilités : 
+Le critère principal est le choix d'un professionnel de santé par les femmes pendant leur grossesse. Le choix possible comprend cinq possibilités : 
 
 - Médecin généraliste
 - Médecin gynécologue médical
@@ -74,6 +85,12 @@ Pour une première comparaison par un test de $\chi^2$ un effectif de 400 cas pa
 
 Si le premier test ne renvoie pas une p.value significative, le résultat est alors négatif & l’analyse s’arrête là.
 
+## Données manquantes
+
+Le décompte des données manquantes sera réalisé & présenté par un tableau ou un graphique. Seule une absence de réponse à la question 7 (*Durant votre 2ème trimestre de grossesse, qui vous a principalement suivi ?*) fera exclure le dossier. Les variables comportant trop de données manquantes ou non utilisables ne seront pas prises en compte après validation par le promoteur.
+
+Après ce premier tri une imputation des données manquantes (package `missMDA` [@miss]) sera réalisée uniquement pour l'analyse factorielle & pour la recherche du meilleur modèle par step-by-tep descendant pour les analyses par régression (logistique ou linéaire). Néanmoins pour cette analyse, après choix du modèle, le calcul final sera fait avec les données réelles. 
+
 ## Description de la population
 
 ### Analyse simple
@@ -81,37 +98,40 @@ Si le premier test ne renvoie pas une p.value significative, le résultat est al
 La description de la population concerne :
 
 
-Plusieurs tableaux descriptifs simples seront réalisés. Des graphiques de distribution pourront être réalisés pour les items les plus importants.
+Trois tableaux descriptifs simples seront réalisés reprenant les parties du questionnaire. Des graphiques de distribution pourront être réalisés pour les items les plus importants.
 
-Une recherche de corrélation entre les variable sera réalisée, celles-ci devant être prises en compte pour l'analyse factorielle ou les régressions.
+Une recherche de corrélation (package `corr` [@corr]) entre les variables en particulier celles de la partie I sera réalisée. Si certaines variables se montreront trop corrélées elles devront être exclues de l'étude après accord du promoteur. 
 
 ### Analyse factorielle
 
-Si le nombre de cas recueillis le permet une analyse factorielle en MCA (Analyse de correspondances multiples) sera réalisée. On essayera en particulier de voir si les femmes ayant choisi d'être suivi par un MG représente un groupe particulier. 
+Si le nombre de cas recueillis le permet une analyse factorielle en MCA (Analyse de correspondances multiples - package `FactoMineR` [@facto]) sera réalisée. On essayera en particulier de voir si les femmes ayant choisi d'être suivi par un MG représentent un groupe particulier. 
 
 Cette analyse ne pourra être qu'après transformation des variables numériques en catégories & imputation des données manquantes ce qui n'est possible que si ces dernières ne sont pas trop nombreuses.
 
 ## Objectif principal
 
-L'analyse du critère principal (choix du professionnel par la femme) sera réalisé par un test du $\chi^2$ si les effectifs sont suffisants, sinon par un test non paramétrique de Wilcoxon.  Uniquement si ce premier test global retourne une p.value significative des test complémentaires seront effectués pour chercher si un choix est différent des autres, en particulier suivi par son MG vs les autres professionnels. 
+L'analyse du critère principal (choix du professionnel par la femme) sera réalisé par un test du $\chi^2$ comparant la distribution observée à une distribution théorique (même nombre de cas dans chaque groupe) si les effectifs sont suffisants, sinon par un test de Fisher.  Uniquement si ce premier test global retourne une p.value significative des tests complémentaires seront effectués pour chercher si un choix est différent des autres, en particulier suivi par son MG vs les autres professionnels. 
  
-Une analyse simple (test de $\chi^2$ ou de Wilcoxon) sera réalisée pour rechercher d'éventuels facteurs pronostics.
+Une analyse simple sera réalisée pour rechercher d'éventuels facteurs pronostics.
 
 
 ### Analyse par régression
 
-Une analyse multivariée par régression logistique sera réalisée en y incorporant les toutes les variables ayant une p-value \< 0,20 sur l'analyse monovariée.
-
-Une analyse multivariée des courbes de survie (modèle de Cox) sera réalisée sur les mêmes critères.
+Un modèle de régression logistique sera employé. On utilisera si possible un modèle binomial (après vérification des hypothèses de normalité et d’homoscédasticité des résidus) sinon un modèle pseudo-binomial. Ce modèle de régression permettra d’explorer les facteurs associés à la réponse en utilisant les critères ayant une la réponse significative avec un seuil p.value = 0,2 lors de l'étape précédente. Une recherche du meilleur modèle sera réalisée par un step-by-step descendant évaluée par le critère d’information d’Akaike. Cette étape sera réalisée après imputation des données manquantes mais le résultat final sera calculé sur les données vraies. 
 
 ## Objectifs secondaires
 
 Les objectifs secondaires sont l'étude de facteurs influant cette décision. Les comparaison seront faites par des tests de $\chi^2$ pour les onze items.
 
-L'analyse du suivi par le médecin généraliste sera uniquement descriptive. 
-Si le nombre de femme ayant choisi le MG pour leur suivi de grossesse est suffisant( > 30) une comparaison entre ce groupe & les autres participantes sera réalisé par des analyses par des tests de  $\chi^2$.
+L'analyse du suivi par le médecin généraliste sera uniquement descriptive.  Si le nombre de femme ayant choisi le MG pour leur suivi de grossesse est suffisant( > 30) une comparaison entre ce groupe & les autres participantes sera réalisé par des analyses par des tests de  $\chi^2$ en reprenant les items des trois parties.
+
+
+Un modèle de régression logistique sera employé. On utilisera si possible modèle binomial (après vérification des hypothèses de normalité et d’homoscédasticité des résidus) sinon un modèle pseudo-binomial sera employé. Ce modèle de régression permettra d’explorer les facteurs associés à la réponse en utilisant les critères ayant une la réponse significative à p=0,2 lors de l'étape précédente. Une recherche du meilleur modèle sera réalisée par un step-by-step descendant évaluée par le critère d’information d’Akaike. Cette étape sera réalisée après imputation des données manquantes mais le résultat final sera calculé sur les données vraies.
 
 ## Technique {.appendix}
 
 L'analyse statistique sera réalisée avec le logiciel **R**[@rstat] & divers packages en particulier `tidyverse` [@tidy], `FactoMineR` [@facto] & `epiDisplay` [@epid].
 
+Un dépôt GIT sera utilisé qui ne comprendra que le code & non les données ou résultats. Au besoin un faux tableau de données sera présent pour permettre des tests.
+
+<https://github.com/philippemichel/Grossesse_Cx>
