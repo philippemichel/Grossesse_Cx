@@ -1,0 +1,307 @@
+---
+title: "Grossese Cx"
+subtitle: "Rapport Statistique -- V1.0"
+lang: fr
+author: 
+  - name: "Dr Philippe MICHEL"
+    affiliations:
+      name: "Hôpital NOVO"
+      department: "Unité de Soutien à la Recherche Clinique"
+format: 
+ titlepage-pdf:
+  titlepage: bg-image
+  titlepage-bg-image: "novo_usrc.png"
+  logo-space-after: "0\\baselineskip"
+  documentclass: scrreprt
+  classoption: ["oneside", "open=any, french"]
+  number-sections: true
+  titlepage-footer: "Corinne SIVARD Services des urgences -- Hôpital NOVO (Site Pontoise)\\newline \\newline Dr Laurine CLEDASSOU – Service des Urgences -- Hôpital NOVO (Site Pontoise)\\newline Dr Olivier FANCELLI Services des urgences -- Hôpital NOVO (Site Pontoise)\\newline **Pr Christophe PONCELET** Service de Gynécologie-Obstétrique -- Hôpital NOVO (Site Pontoise)\\newline - )\\newline \\newline Choix des professionnels de santé par les patientes pour le suivi de leur grossesse physiologique\\newline Étude monocentrique \\newline \\today"
+titlepage-theme:
+  title-fontstyle: ["Huge", "bfseries"]
+  title-color: novo
+  subtitle-color: novo
+  subtitle-fontstyle: ["huge"]
+  logo-size: "0.2\\textheight"
+  vrule-width: "0.1cm"
+  vrule-color: novo
+include-in-header:
+   text: |
+    \definecolor{novo}{HTML}{27484b}
+    \usepackage{siunitx}
+    \mathcode`\.="013B 
+df-print : kable
+jss-pdf:
+  keep-tex: true  
+pdf-engine: lualatex
+keep-tex: true
+number-sections: true
+toc: true
+lof: true
+lot: true
+mainfont: Faune
+mainfontoptions:
+  - Numbers=OldStyle
+  - Ligatures=TeX
+sansfont: Myriad Pro
+sansfontoptions:
+  - Ligatures=TeX
+fig-cap-location: bottom
+tbl-cap-location: top
+classoption: [french]
+papersize: a4paper
+editor: source
+bibliography: stat.bib
+cite-method: biblatex
+csl: jama.csl
+#reference-location: margin
+#citation-location: margin
+license: "MIT"
+echo: false
+warning: false
+message: false
+cache: false
+---
+
+```{r setup, include=FALSE}
+expx <- FALSE
+classeur <- "grossessescx.xls"
+``` 
+
+```{r}
+#| label: lib
+
+library(baseph)
+library(readODS)
+library(janitor)
+library(corrplot)
+library(tidyverse)
+library(lubridate)
+library(labelled)
+library(kableExtra)
+library(forestmodel)
+library(epiDisplay)
+library(confintr)
+library(missMDA)
+library(colorspace)
+library(visdat)
+library(gtsummary)
+library(FactoMineR)
+library(factoextra)
+```
+
+
+
+```{r}
+#| label: import
+
+rm(tt)
+
+bnom <- read_csv2("datas/bnommed.csv")
+bnommed <- bnom$nom
+nax <- c("NA","na","NR","","N/A","ND", "Non disponible")
+ttmed <- read_csv2("datas/gcxmed.csv",na = nax) |> 
+ mutate_if(is.character, as.factor) |>
+ janitor::clean_names()
+var_label(ttmed) <- bnommed
+#
+bnom <- read_csv2("datas/bnompat.csv")
+bnompat <- bnom$nom
+ttpat <- read_csv2("datas/patientes.csv",na = nax) |> 
+ mutate_if(is.character, as.factor) |>
+ janitor::clean_names()
+var_label(ttpat) <- bnompat
+
+## Recodage de ttpat$nb_enfants en ttpat$nb_enfants_rec
+ttpat$nb_enfants <- cut(ttpat$nb_enfants,
+  include.lowest = TRUE,
+  right = FALSE,
+  dig.lab = 4,
+  breaks = c(1, 2, 3, 4, 10), 
+  labels = c("1","2","3","4 et plus")
+)
+## Réordonnancement de ttpat$niveau_etude
+ttpat$niveau_etude <- ttpat$niveau_etude %>%
+  fct_relevel(
+    "Aucun diple", "Brevet des collèges, CAP, BEP ou diple de me niveau",
+    "Baccalauréat ou équivalent", "Diple du 1er cycle universitaire, niveau BAC +2",
+    "Diple du 2e cycle universitaire, niveau BAC +3", "Diple du 3e cycle universitaire, niveau BAC +5 et plus",
+    "Autre"
+  )
+# determinants
+imp <- function(zz){
+  fct_relevel(zz,
+    "Pas important(es)", "Peu important(es)", "Important(es)",
+    "Très important(es)"
+  )
+}
+ttpat <- ttpat |> 
+  mutate(across(starts_with("d_"),imp))
+## Réordonnancement de ttpat$ans_connait_ps
+ttpat$ans_connait_ps <- ttpat$ans_connait_ps %>%
+  fct_relevel(
+    "Moins de 5 ans", "De 5 ans à 10 ans", "Plus de 10 ans"
+  )
+## Réordonnancement de ttpat$age_ideal_ps
+ttpat$age_ideal_ps <- ttpat$age_ideal_ps %>%
+  fct_relevel(
+    "De moins de 40 ans", "De 40 à 60 ans", "De plus de 60 ans",
+    "Pas de préférence"
+  )
+## Réordonnancement de ttpat$delai_rdv
+ttpat$delai_rdv <- ttpat$delai_rdv %>%
+  fct_relevel(
+    "Dans les 15 jours", "Dans les 7 jours", "Dans les 48h"
+  )
+## Réordonnancement de ttpat$delai_avis
+ttpat$delai_avis <- ttpat$delai_avis %>%
+  fct_relevel(
+    "Dans les 24h", "Dans les 48h", "Dans les 7 jours"
+  )
+## Réordonnancement de ttpat$duree_trajet_convenable
+ttpat$duree_trajet_convenable <- ttpat$duree_trajet_convenable %>%
+  fct_relevel(
+    "Moins de 15 minutes", "Entre 15 et 29 minutes", "Entre 30 et 44 minutes",
+    "45 minutes et plus"
+  )
+## Réordonnancement de ttpat$prix_convenable
+ttpat$prix_convenable <- ttpat$prix_convenable %>%
+  fct_relevel(
+    "Moins de 29 euros", "Entre 30 et 59 euros", "Entre 60 et 89 euros"
+  )
+## Réordonnancement de ttpat$duree_consult_convenable
+ttpat$duree_consult_convenable <- ttpat$duree_consult_convenable %>%
+  fct_relevel(
+    "Moins de 15 minutes", "Entre 15 et 29 minutes", "Entre 30 et 44 minutes",
+    "45 minutes et plus"
+  )
+## Réordonnancement de ttpat$age_mg
+ttpat$age_mg <- ttpat$age_mg %>%
+  fct_relevel(
+    "Moins de 40 ans", "De 40 à 60 ans", "Plus de 60 ans"
+  )
+## Réordonnancement de ttpat$ans_connais_mg
+ttpat$ans_connais_mg <- ttpat$ans_connais_mg %>%
+  fct_relevel(
+    "Moins de 5 ans", "De 5 ans à 10 ans", "Plus de 10 ans"
+  )
+## Réordonnancement de ttpat$mg_gynecologie
+ttpat$mg_gynecologie <- ttpat$mg_gynecologie %>%
+  fct_relevel(
+    "Oui et il fait mon suivi gynécologique", "Oui mais il ne fait pas mon suivi gynécologique",
+    "Non", "Je ne sais pas"
+  )
+```
+
+# Qualité des données
+
+## Données manquantes
+
+```{r}
+#| label: manqmed
+#| fig-cap: Données manquantes - questionnaire médical
+#|
+ttmed |> 
+ dplyr::select(-1) |> 
+vis_miss(show_perc_col = TRUE)
+```
+
+
+```{r}
+#| label: manqpat
+#| fig-cap: Données manquantes - questionnaire parturiente
+#|
+ttpat |> 
+ dplyr::select(-1) |> 
+vis_miss(show_perc_col = TRUE)
+```
+
+IL y a `r sum(is.na(ttpat$ps_prochaine_g))` cas sans réponse pour la question  pour la question *Lors d'une éventuelle prochaine grossesse, par quel professionnel de santé aimeriez-vous être suivie ?* qui sont supprimés.
+
+La question *Avez-vous une préférence concernant le sexe du professionnel de santé ? Si oui, lequel?* a trop de données manquantes & est donc supprimée.
+
+```{r}
+#| label: sup
+
+ttpat <- ttpat |> 
+  drop_na(ps_prochaine_g) |> 
+  select(- pref_sexe_ps)
+```
+
+
+La base comprend donc `r nrow(ttpat)` cas pour `r ncol(ttpat)` variables dans la base `patientes` & `r ncol(ttmed)` dans la base médicale.
+
+# Description de la population
+
+
+```{r}
+#| label: desc1
+#| tbl-cap: Tableau descriptif - parturiente
+ 
+ttpat |> 
+ dplyr::select(2:12) |> 
+ tbl_summary(missing = "no") |> 
+  modify_header(label ~ " ") %>%
+ bold_labels() |> 
+   add_n() |> 
+ pexptabph(lg = FALSE, exp = expx, nomfich = classeur, nomsheet = "descpat1")
+```
+
+```{r}
+#| label: desc2
+#| tbl-cap: Déterminants & caractérisques
+ 
+ttpat |> 
+ dplyr::select(13:24) |> 
+ tbl_summary(missing = "no") |> 
+  modify_header(label ~ " ") %>%
+ bold_labels() |> 
+  add_n() |> 
+ pexptabph(lg = FALSE, exp = expx, nomfich = classeur, nomsheet = "descpat2")
+```
+
+```{r}
+#| label: desc3
+#| tbl-cap: Caractérisques du personnel de santé
+ 
+ttpat |> 
+ dplyr::select(25:31) |> 
+ tbl_summary(missing = "no") |> 
+  modify_header(label ~ " ") %>%
+ bold_labels() |> 
+   add_n() |> 
+ pexptabph(lg = FALSE, exp = expx, nomfich = classeur, nomsheet = "descpat3")
+```
+
+```{r}
+#| label: desc4
+#| tbl-cap: Compétences importantes
+ 
+ttpat |> 
+ dplyr::select(32:40) |> 
+ tbl_summary(missing = "no") |> 
+  modify_header(label ~ " ") %>%
+ bold_labels() |> 
+   add_n() |> 
+ pexptabph(lg = FALSE, exp = expx, nomfich = classeur, nomsheet = "descpat4")
+```
+
+```{r}
+#| label: descmg
+#| tbl-cap: Le médecin généraliste
+ 
+ttpat |> 
+ dplyr::select(42:49) |> 
+ tbl_summary(missing = "no") |> 
+  modify_header(label ~ " ") %>%
+ bold_labels() |> 
+   add_n() |> 
+ pexptabph(lg = FALSE, exp = expx, nomfich = classeur, nomsheet = "descpatmg")
+```
+
+## Technique {.appendix}
+
+Les données discrètes ont été présentées en pourcentage puis comparées par un test exact du $\chi^2$. Les données numériques ont été présentées par leur moyenne & l'écart-type puis comparées par le test du t de Student après vérification de l'égalité de variance ou par une analyse de variance (ANOVA). 
+
+Un modèle de régression logistique a été employé. Ce modèle de régression a été limité aux facteurs associés à la réponse en utilisant les critères ayant une la réponse significative avec un seuil p.value < 0,5 lors de l’étape précédente. Une recherche du meilleur modèle a été réalisée par un step-by-step descendant basé sur le critère d’information d’Akaike. Cette étape a été réalisée après imputation des données manquantes mais le résultat final a été calculé sur les données vraies.
+
+L'analyse statistique a été réalisée avec le logiciel **R** [@rstat] & diverses librairies en particulier celles du `tidyverse` [@tidy] & `baseph` [@baseph].
