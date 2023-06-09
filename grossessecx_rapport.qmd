@@ -1,0 +1,176 @@
+---
+title: "Grossesse Cx"
+subtitle: "Rapport statistique -- v1.0"
+author: 
+    - name: "Dr Philippe MICHEL"
+      affiliations:
+        name: "Hôpital NOVO"
+        department: "Unité de Soutien à la Recherche Clinique"
+format: 
+  titlepage-pdf:
+    titlepage: bg-image
+    titlepage-bg-image: "novo_usrc.png"
+    logo-space-after: "0\\baselineskip"
+    documentclass: scrreprt
+    classoption: ["oneside", "open=any, french"]
+    number-sections: true
+    titlepage-footer: "**Pr Christophe PONCELET** Service de Gynécologie-Obstétrique -- Hôpital NOVO (Site Pontoise)\\newline Dr Corinne SIVARD \\newline Dr Laurine CLEDASSOU Service de Gynécologie-Obstétrique -- Hôpital NOVO (Site Pontoise)\\newline Dr Olivier FANCELLI Service de Gynécologie-Obstétrique -- Hôpital NOVO (Site Pontoise)\\newline \\newline Choix du professionnel de santé par les patientes pour le suivi de leur grossesse\\newline Étude non interventionnelle prospective et monocentrique.\\newline \\today"
+titlepage-theme:
+    title-fontstyle: ["Huge", "bfseries"]
+    title-color: novo
+    subtitle-color: novo
+    subtitle-fontstyle: ["huge"]
+    logo-size: "0.2\\textheight"
+    vrule-width: "0.1cm"
+    vrule-color: novo
+include-in-header:
+      text: |
+        \usepackage{siunitx}
+        \definecolor{novo}{HTML}{27484b}
+jss-pdf:
+    keep-tex: true   
+pdf-engine: lualatex
+keep-tex: true
+number-sections: true
+toc: true
+lof: true
+lot: true
+mainfont: Faune
+mainfontoptions:
+  - Numbers=OldStyle
+  - Ligatures=TeX
+sansfont: Myriad Pro
+sansfontoptions:
+  - Ligatures=TeX
+fig-cap-location: bottom
+tbl-cap-location: top
+classoption: [french]
+papersize: a4paper
+editor: source
+bibliography: stat.bib
+cite-method: biblatex
+csl: jama.csl
+#reference-location: margin
+#citation-location: margin
+license: "MIT"
+echo: false
+warning: false
+message: false
+cache: false
+---
+
+```{r setup, include=FALSE}
+expx <- FALSE
+classeur <- "grossessecx.xls"
+```
+
+```{r}
+#| label: lib
+
+library(baseph)
+library(janitor)
+library(corrplot)
+library(lubridate)
+library(Rcpp)
+library(xlsx)
+library(tidyverse)
+library(lubridate)
+library(labelled)
+library(kableExtra)
+library(forestmodel)
+library(epiDisplay)
+library(confintr)
+library(missMDA)
+library(colorspace)
+library(visdat)
+library(gtsummary)
+#
+# Écrivons les chiffres en français
+#
+theme_gtsummary_language(language = "fr", decimal.mark = ",", big.mark = " ")
+```
+
+
+```{r}
+ #| label: import
+
+rm(tt, ttz,tta, ttb)
+tt <-
+  read_csv2(
+    "datas/grossessecx.csv",
+    na = c("NA", "nk", " ", "", "na", "nd"),
+    show_col_types = FALSE
+  ) |> 
+  mutate_if(is.character, as.factor)  |>
+  janitor::clean_names() |>
+
+bnom <- read_csv2("datas/bnom.csv")
+bnom <- bnom$nom
+
+var_label(tt) <- bnom
+```
+
+
+
+La population comprend `r nrow(tt)` patients dans la base pour `r ncol(tt)` variables. 
+
+
+# Description
+
+## Patient
+```{r}
+#| label: despat
+#| tbl-cap: Tableau descriptif -- Patient
+
+tt |>
+  dplyr::select(-1) |>
+  tbl_summary(missing = "no") |>
+  modify_header(label ~ " ") |>
+  bold_labels() |>
+  add_n() |>
+  gexptabph(
+    lg = TRUE,
+    exp = expx,
+    nomfich = classeur,
+    nomsheet = "descpat"
+  )
+```
+
+```{r}
+#| label: pyr
+#| fig-cap: Pyramide des âges
+
+      ggplot(ttz) +
+      aes(x = tranche.age, fill = sexe) +
+      geom_bar(data = subset(tt, sexe == "femme"),
+               aes(y = after_stat(count) * (-1))) +
+      geom_bar(data = subset(tt, sexe == "homme")) +
+      geom_hline(yintercept = 0)+
+      scale_fill_manual(values = c("pink", "lightblue")) +
+      coord_flip() +
+      labs(title = "Pyramide des âges") +
+      theme_light() +
+      theme(
+        plot.title = element_text(size = 16, face = "bold"),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x =  element_blank(),
+        axis.text.y =  element_text(size = 12),
+        legend.position = "right",
+        legend.title = element_blank(),
+        legend.text = element_text(size = 12)
+      )
+```
+
+
+
+La chirurgie & la radiothérapie sont de plus en plus réalisées en CLRC au contraire de la chimiothérapie.
+
+# Technique
+
+Dans les tableaux descriptifs les données discrètes ont été présentées en pourcentage puis comparées par un test du $\chi^2$. Les données numériques ont été présentées par leur moyenne avec l'écart type puis comparées par le test t de Student. 
+
+La survie a été étudiée sur un intervalle de `r fin` mois après le diagnostic. Les courbes ont été tracées par la méthode de Kaplan-Meyer. Les comparaisons deux à deux ont été analysées par la méthode du Log-Rank puis une analyse en régression par la méthode de Cox a été réalisée.
+
+L'analyse statistique a été réalisée avec le logiciel **R** [@rstat] & diverses librairies en particulier celles du `tidyverse` [@tidy] & `baseph` [@baseph].
+
