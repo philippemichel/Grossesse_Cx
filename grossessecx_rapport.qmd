@@ -1,34 +1,37 @@
+ 
 ---
 title: "Grossesse Cx"
-subtitle: "Rapport statistique -- v1.0"
-author: 
-    - name: "Dr Philippe MICHEL"
-      affiliations:
-        name: "Hôpital NOVO"
-        department: "Unité de Soutien à la Recherche Clinique"
-format: 
-  titlepage-pdf:
-    titlepage: bg-image
-    titlepage-bg-image: "novo_usrc.png"
-    logo-space-after: "0\\baselineskip"
-    documentclass: scrreprt
-    classoption: ["oneside", "open=any, french"]
-    number-sections: true
-    titlepage-footer: "**Pr Christophe PONCELET** Service de Gynécologie-Obstétrique -- Hôpital NOVO (Site Pontoise)\\newline Dr Corinne SIVARD \\newline Dr Laurine CLEDASSOU Service de Gynécologie-Obstétrique -- Hôpital NOVO (Site Pontoise)\\newline Dr Olivier FANCELLI Service de Gynécologie-Obstétrique -- Hôpital NOVO (Site Pontoise)\\newline \\newline Choix du professionnel de santé par les patientes pour le suivi de leur grossesse\\newline Étude non interventionnelle prospective et monocentrique.\\newline \\today"
+subtitle: "Rapport Statistique -- V1.1"
+author:
+  - name: "Dr Philippe MICHEL"
+    affiliations:
+      name: "Hôpital NOVO"
+      department: "Unité de Soutien à la Recherche Clinique"
+format:
+ titlepage-pdf:
+  titlepage: bg-image
+  titlepage-bg-image: "novo_usrc.png"
+  logo-space-after: "0\\baselineskip"
+  documentclass: scrreprt
+  classoption: ["oneside", "open=any, french"]
+  number-sections: true
+  titlepage-footer: "Corinne SIVARD Services des urgences -- Hôpital NOVO (Site Pontoise)\\newline \\newline Dr Laurine CLEDASSOU – Service des Urgences -- Hôpital NOVO (Site Pontoise)\\newline Dr Olivier FANCELLI Services des urgences -- Hôpital NOVO (Site Pontoise)\\newline Pr Christophe PONCELET Service de Gynécologie-Obstétrique -- Hôpital NOVO (Site Pontoise)\\newline\\newline \\newline Choix des professionnels de santé par les patientes pour le suivi de leur grossesse\\newline Étude monocentrique \\newline \\today"
 titlepage-theme:
-    title-fontstyle: ["Huge", "bfseries"]
-    title-color: novo
-    subtitle-color: novo
-    subtitle-fontstyle: ["huge"]
-    logo-size: "0.2\\textheight"
-    vrule-width: "0.1cm"
-    vrule-color: novo
+  title-fontstyle: ["Huge", "bfseries"]
+  title-color: novo
+  subtitle-color: novo
+  subtitle-fontstyle: ["huge"]
+  logo-size: "0.2\\textheight"
+  vrule-width: "0.1cm"
+  vrule-color: novo
 include-in-header:
-      text: |
-        \usepackage{siunitx}
-        \definecolor{novo}{HTML}{27484b}
+   text: |
+    \definecolor{novo}{HTML}{27484b}
+    \usepackage{siunitx}
+    \mathcode`\.="013B
+df-print : kable
 jss-pdf:
-    keep-tex: true   
+  keep-tex: true
 pdf-engine: lualatex
 keep-tex: true
 number-sections: true
@@ -61,18 +64,16 @@ cache: false
 
 ```{r setup, include=FALSE}
 expx <- FALSE
-classeur <- "grossessecx.xls"
+classeur <- "grossessescx.xls"
 ```
 
 ```{r}
 #| label: lib
 
 library(baseph)
+library(readODS)
 library(janitor)
 library(corrplot)
-library(lubridate)
-library(Rcpp)
-library(xlsx)
 library(tidyverse)
 library(lubridate)
 library(labelled)
@@ -84,93 +85,719 @@ library(missMDA)
 library(colorspace)
 library(visdat)
 library(gtsummary)
-#
-# Écrivons les chiffres en français
-#
-theme_gtsummary_language(language = "fr", decimal.mark = ",", big.mark = " ")
-```
-
-
-```{r}
- #| label: import
-
-rm(tt, ttz,tta, ttb)
-tt <-
-  read_csv2(
-    "datas/grossessecx.csv",
-    na = c("NA", "nk", " ", "", "na", "nd"),
-    show_col_types = FALSE
-  ) |> 
-  mutate_if(is.character, as.factor)  |>
-  janitor::clean_names() |>
-
-bnom <- read_csv2("datas/bnom.csv")
-bnom <- bnom$nom
-
-var_label(tt) <- bnom
 ```
 
 
 
-La population comprend `r nrow(tt)` patients dans la base pour `r ncol(tt)` variables. 
-
-
-# Description
-
-## Patient
 ```{r}
-#| label: despat
-#| tbl-cap: Tableau descriptif -- Patient
+#| label: import
 
-tt |>
-  dplyr::select(-1) |>
-  tbl_summary(missing = "no") |>
-  modify_header(label ~ " ") |>
-  bold_labels() |>
-  add_n() |>
-  gexptabph(
-    lg = TRUE,
-    exp = expx,
-    nomfich = classeur,
-    nomsheet = "descpat"
+rm(ttpat)
+
+bnom <- read_delim("datas/bnommed.csv", delim =";")
+bnommed <- bnom$nom
+nax <- c("NA","na","NR","","N/A","ND", "médical", "Autre")
+ttmed <- read_csv2("datas/gcxmed.csv",na = nax) |>
+ mutate_if(is.character, as.factor) |>
+ janitor::clean_names()
+var_label(ttmed) <- bnommed
+#
+bnom <- read_delim("datas/bnompat.csv", delim = ";")
+bnompat <- bnom$nom
+ttpat <- read_csv2("datas/patientes.csv",na = nax) |>
+ mutate_if(is.character, as.factor) |>
+ janitor::clean_names()
+var_label(ttpat) <- bnompat
+
+## Recodage de ttpat$nb_enfants en ttpat$nb_enfants_rec
+ttpat <- ttpat |>
+  mutate(nb_enfants = as.factor(if_else(nb_enfants == 1, "Primipare", "Multipare"))) |>
+  mutate(across(starts_with("d_"),\(dd){fct_recode(dd,
+                      "Pas ou peu important(es)" = "Pas important(es)",
+                      "Pas ou peu important(es)" = "Peu important(es)",
+                      "Important(es)" = "Très important(es)")}))
+
+## Réordonnancement de ttpat$niveau_etude
+ttpat$niveau_etude <- ttpat$niveau_etude %>%
+  fct_relevel(
+    "Aucun diple", "Brevet des collèges, CAP, BEP", "Baccalauréat ou équivalent",
+    "1er cycle universitaire, niveau BAC +2", "2e cycle universitaire, niveau BAC +3",
+    "3e cycle universitaire, niveau BAC +5 et plus")
+
+## Réordonnancement de ttpat$ans_connait_ps
+ttpat$ans_connait_ps <- ttpat$ans_connait_ps %>%
+  fct_relevel(
+    "Moins de 5 ans", "De 5 ans à 10 ans", "Plus de 10 ans"
+  )
+## Réordonnancement de ttpat$age_ideal_ps
+ttpat$age_ideal_ps <- ttpat$age_ideal_ps %>%
+  fct_relevel(
+    "De moins de 40 ans", "De 40 à 60 ans", "De plus de 60 ans",
+    "Pas de préférence"
+  )
+## Réordonnancement de ttpat$delai_rdv
+ttpat$delai_rdv <- ttpat$delai_rdv %>%
+  fct_relevel(
+    "Dans les 15 jours", "Dans les 7 jours", "Dans les 48h"
+  )
+## Réordonnancement de ttpat$delai_avis
+ttpat$delai_avis <- ttpat$delai_avis %>%
+  fct_relevel(
+    "Dans les 24h", "Dans les 48h", "Dans les 7 jours"
+  )
+## Réordonnancement de ttpat$duree_trajet_convenable
+ttpat$duree_trajet_convenable <- ttpat$duree_trajet_convenable %>%
+  fct_relevel(
+    "Moins de 15 minutes", "Entre 15 et 29 minutes", "Entre 30 et 44 minutes",
+    "45 minutes et plus"
+  )
+## Réordonnancement de ttpat$prix_convenable
+ttpat$prix_convenable <- ttpat$prix_convenable %>%
+  fct_relevel(
+    "Moins de 29 euros", "Entre 30 et 59 euros", "Entre 60 et 89 euros"
+  )
+## Réordonnancement de ttpat$duree_consult_convenable
+ttpat$duree_consult_convenable <- ttpat$duree_consult_convenable %>%
+  fct_relevel(
+    "Moins de 15 minutes", "Entre 15 et 29 minutes", "Entre 30 et 44 minutes",
+    "45 minutes et plus"
+  )
+## Réordonnancement de ttpat$age_mg
+ttpat$age_mg <- ttpat$age_mg %>%
+  fct_relevel(
+    "Moins de 40 ans", "De 40 à 60 ans", "Plus de 60 ans"
+  )
+## Réordonnancement de ttpat$ans_connais_mg
+ttpat$ans_connais_mg <- ttpat$ans_connais_mg %>%
+  fct_relevel(
+    "Moins de 5 ans", "De 5 ans à 10 ans", "Plus de 10 ans"
+  )
+## Réordonnancement de ttpat$mg_gynecologie
+ttpat$mg_gynecologie <- ttpat$mg_gynecologie %>%
+  fct_relevel(
+    "Oui et il fait mon suivi gynécologique", "Oui mais il ne fait pas mon suivi gynécologique",
+    "Non", "Je ne sais pas"
   )
 ```
 
-```{r}
-#| label: pyr
-#| fig-cap: Pyramide des âges
+# Qualité des données
 
-      ggplot(ttz) +
-      aes(x = tranche.age, fill = sexe) +
-      geom_bar(data = subset(tt, sexe == "femme"),
-               aes(y = after_stat(count) * (-1))) +
-      geom_bar(data = subset(tt, sexe == "homme")) +
-      geom_hline(yintercept = 0)+
-      scale_fill_manual(values = c("pink", "lightblue")) +
-      coord_flip() +
-      labs(title = "Pyramide des âges") +
-      theme_light() +
-      theme(
-        plot.title = element_text(size = 16, face = "bold"),
-        axis.title.x = element_blank(),
-        axis.title.y = element_blank(),
-        axis.text.x =  element_blank(),
-        axis.text.y =  element_text(size = 12),
-        legend.position = "right",
-        legend.title = element_blank(),
-        legend.text = element_text(size = 12)
-      )
+## Données manquantes
+
+```{r}
+#| label: manqmed
+#| fig-cap: Données manquantes - questionnaire médical
+#|
+ttmed |>
+ dplyr::select(-1) |>
+vis_miss(show_perc_col = TRUE)
+```
+
+```{r}
+#| label: cor1
+#| fig-cap: Tableau de corrélation
+#| fig-asp: 1
+ttpat |>
+  select(-c(1,42,43)) |>
+  mutate_all(as.numeric) |>
+  cor(use = "complete.obs") |>
+  corrplot(diag = FALSE, type = "lower", tl.cex = 0.5)
+```
+Il n'y a pas de corrélations anormales.
+
+```{r}
+#| label: manqpat
+#| fig-cap: Données manquantes - questionnaire parturiente
+#|
+ttpat |>
+ dplyr::select(-1) |>
+vis_miss(show_perc_col = TRUE)
+```
+
+IL y a `r sum(is.na(ttpat$ps_prochaine_g))` cas sans réponse pour la question  pour la question *Lors d'une éventuelle prochaine grossesse, par quel professionnel de santé aimeriez-vous être suivie ?* qui sont supprimés.
+
+
+```{r}
+#| label: sup
+ttmed$ps <- ttpat$ps_prochaine_g
+ttmed <- ttmed |>
+drop_na(ps)
+
+ttpat <- ttpat |>
+  drop_na(ps_prochaine_g)
+```
+
+
+La base comprend donc `r nrow(ttpat)` cas pour `r ncol(ttpat)` variables dans la base `patientes` & `r ncol(ttmed)` dans la base médicale.
+
+# Description de la population
+
+
+```{r}
+#| label: desc1
+#| tbl-cap: Tableau descriptif - parturiente
+
+ttpat |>
+ dplyr::select(2:6,12) |>
+ tbl_summary(missing = "no") |>
+  modify_header(label ~ " ") %>%
+ bold_labels() |>
+    add_n() |>
+ gexptabph(lg = FALSE, exp = expx, nomfich = classeur, nomsheet = "descpat1")
+```
+
+```{r}
+#| label: descsuivi
+#| tbl-cap: Tableau descriptif - Suivi actuel
+
+ttpat |>
+ dplyr::select(7:11) |>
+ tbl_summary(missing = "no") |>
+  modify_header(label ~ " ") %>%
+ bold_labels() |>
+    add_n() |>
+ gexptabph(lg = FALSE, exp = expx, nomfich = classeur, nomsheet = "descpat1")
+```
+
+
+```{r}
+#| label: desc2
+#| tbl-cap: Déterminants & caractérisques
+
+zz <- ttpat |>
+select(starts_with("d_"))
+  names(zz) <- bnompat[13:24]
+
+zz |>
+  pivot_longer(1:12) |>
+  tbl_cross( col = value, row = name, percent = "row", margin = NULL, missing = "no",
+             label = list(name ~ " ", value = "Déterminant classé comme")) |>
+ bold_labels() |>
+ gexptabph(lg = FALSE, exp = expx, nomfich = classeur, nomsheet = "descpat2")
+```
+
+```{r}
+#| label: desc3
+#| tbl-cap: Caractérisques du personnel de santé
+
+ttpat |>
+ dplyr::select(25:31) |>
+ tbl_summary(missing = "no") |>
+  modify_header(label ~ " ") %>%
+ bold_labels() |>
+   add_n() |>
+ gexptabph(lg = FALSE, exp = expx, nomfich = classeur, nomsheet = "descpat3")
+```
+
+```{r}
+#| label: desc4
+#| tbl-cap: Compétences importantes
+lulu <- function(zz){
+ zz <-  fct_lump(zz, n = 5,other_level="autre")
+ zz <- fct_infreq(zz)
+ return(zz)
+}
+
+ttpat |>
+ dplyr::select(33:41) |>
+  mutate_all(lulu) |>
+ tbl_summary(missing = "no") |>
+  modify_header(label ~ " ") %>%
+ bold_labels() |>
+   add_n() |>
+ pexptabph(lg = TRUE, exp = expx, nomfich = classeur, nomsheet = "descpat4")
+```
+
+```{r}
+#| label: Compattfig
+#| fig-cap: Compétences attendues
+#| fig-asp: 1.8
+tit <- "Compétences attendues"
+ttpat |>
+  select(33:41) |>
+  pivot_longer(1:9) |>
+  drop_na(value) |>
+  mutate(value = str_wrap(value, width = 25)) |>
+  mutate(name =as.factor(name)) |>
+  #
+  ggplot() +
+  aes (x = fct_infreq(value), fill = value) +
+  geom_bar(stat = "count") +
+  facet_grid(name ~ .) +
+  labs(title = tit,
+       y = "n",
+       caption = tit)+
+  theme_light() +
+  scale_fill_discrete_qualitative(palette = "Dynamic") +
+  scale_y_continuous(breaks = c(100,200)) +
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    axis.title.x = element_blank(),
+    legend.title = element_blank(),
+    axis.title.y = element_text(
+      size = 12,
+      angle = 0,
+      vjust = .5
+    ),
+    axis.text.x = element_text(
+      size = 12 ,
+      angle = 45,
+      hjust = 1
+    ),
+    axis.text.y = element_text(size = 12),
+    legend.position = "none"
+  )
+```
+
+La compétence *Attitude bienveillante, empathie* arrive nettement en tête. Ensuite il n'y a pas d’autre graduation visible.
+
+# Critère principal
+
+*Déterminer quel professionnel de santé est préférentiellement choisi par les femmes parturientes*
+
+```{r}
+#| label: critp1
+#| tab-cap : Choix d'un professionnel de santé pour une prochaine grossesse
+
+ttpat |>
+  select(ps_prochaine_g) |>
+  mutate(ps_prochaine_g = fct_infreq(ps_prochaine_g)) |>
+   tbl_summary(missing = "no") |>
+  modify_header(label ~ " ") %>%
+ bold_labels() |>
+   add_n() |>
+ gexptabph(lg = FALSE, exp = expx, nomfich = classeur, nomsheet = "critp1")
+
+
+```
+
+```{r}
+#| label: pric1fig
+#| fig-cap: Choix d'un professionnel de santé pour une prochaine grossesse
+#| fig-asp: 1
+
+tit <- "Choix d'un professionnel de santé pour une prochaine grossesse"
+ttpat |>
+  count(ps_prochaine_g) |>
+  mutate(perc = 100 * n / nrow(ttpat)) |>
+  mutate(ps_prochaine_g = fct_reorder(ps_prochaine_g, desc(perc))) %>%
+  ggplot() +
+  aes(x= ps_prochaine_g, y = perc , fill = ps_prochaine_g) +
+  geom_bar(stat = 'identity') +
+    labs(title = tit,
+       y = "n",
+       caption = tit)+
+  theme_light() +
+  scale_fill_discrete_qualitative(palette = "Dynamic") +
+  scale_y_continuous(breaks = c(100,200)) +
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    axis.title.x = element_blank(),
+    legend.title = element_blank(),
+    axis.title.y = element_text(
+      size = 12,
+      angle = 0,
+      vjust = 1
+    ),
+    axis.text.x = element_text(
+      size = 12 ,
+      angle = 45,
+      hjust = 1
+    ),
+    axis.text.y = element_text(size = 12),
+    legend.position = "none"
+  )
+```
+
+## facteurs influants
+```{r}
+#| label: facttab1
+#| tbl-cap: Facteurs influant le choix d'un professionnel de santé
+
+
+ttpat |>
+  select(c(2:6,12,42)) |>
+     tbl_summary(missing = "no", by = ps_prochaine_g) |>
+  modify_header(label ~ " ") %>%
+ bold_labels() |>
+   add_p(test = list(all_continuous() ~ "t.test", all_categorical() ~ "chisq.test")) |>
+  bold_p() |>
+ gexptabph(lg = FALSE, exp = expx, nomfich = classeur, nomsheet = "facttab1")
+```
+
+## Suivi actuel & choix
+```{r}
+#| label: suiv1
+#| tbl-cap: Suivi actuel & choix d'un professionnel de santé
+#| fig-asp: 1
+
+ttpat |>
+  select(c(7:11,42)) |>
+     tbl_summary(missing = "no", by = ps_prochaine_g) |>
+  modify_header(label ~ " ") %>%
+ bold_labels() |>
+   add_p(test = list(all_continuous() ~ "t.test", all_categorical() ~ "chisq.test")) |>
+  bold_p() |>
+ gexptabph(lg = FALSE, exp = expx, nomfich = classeur, nomsheet = "facttab2")
+```
+
+```{r}
+#| label: suiv22
+#| fig-cap: Suivi actuel & choix d'un professionnel de santé
+
+tt <- ttpat |>
+  drop_na(suivi_t2) |>
+  group_by(suivi_t2) |>
+  count()
+nn <- ttpat |>
+  drop_na(suivi_t2) |>
+  mutate(idpro = if_else(suivi_t2 == ps_prochaine_g, "Même professionnel", "Autre Professionnel")) |>
+  filter (idpro == "Même professionnel") |>
+  group_by(suivi_t2) |>
+  count()
+tt$nn <- nn$n
+tt |>
+  mutate(pc = nn*100/n) |>
+  ggplot() +
+  aes(x = fct_reorder(suivi_t2, desc(pc)), y = pc, fill = pc) +
+  geom_bar(stat = "identity") +
+      labs(title = "Suivi actuel & choix d'un professionnel de santé",
+           subtitle = "Même choix",
+       y = "%",
+       caption = "Suivi actuel & choix d'un professionnel de santé")+
+  theme_light() +
+  scale_fill_continuous_sequential(palette = "Red-Yellow") +
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    axis.title.x = element_blank(),
+    legend.title = element_blank(),
+    axis.title.y = element_text(
+      size = 12,
+      angle = 0,
+      vjust = 0.5
+    ),
+    axis.text.x = element_text(
+      size = 12 ,
+      angle = 45,
+      hjust = 1
+    ),
+    axis.text.y = element_text(size = 12),
+    legend.position = "none"
+  )
 ```
 
 
 
-La chirurgie & la radiothérapie sont de plus en plus réalisées en CLRC au contraire de la chimiothérapie.
+# Critères secondaires
 
-# Technique
+```{r}
+#| label: fonctioncrit
 
-Dans les tableaux descriptifs les données discrètes ont été présentées en pourcentage puis comparées par un test du $\chi^2$. Les données numériques ont été présentées par leur moyenne avec l'écart type puis comparées par le test t de Student. 
+critt <- function(dfx,varx,lab) {
+#
+  dfx |>
+    tbl_cross(row = {{varx}}, col = ps_prochaine_g, missing = "no") |>
+    modify_header(label ~ " ") %>%
+    bold_labels() |>
+    add_p(test = "chisq.test") |>
+    bold_p() |>
+    gexptabph(lg = FALSE, exp = expx, nomfich = classeur, nomsheet = lab)
+}
 
-La survie a été étudiée sur un intervalle de `r fin` mois après le diagnostic. Les courbes ont été tracées par la méthode de Kaplan-Meyer. Les comparaisons deux à deux ont été analysées par la méthode du Log-Rank puis une analyse en régression par la méthode de Cox a été réalisée.
+critf <- function(dfx,varx, pzz, ttit) {
+#
+ttpat |>
+  filter(ps_prochaine_g != "Médecin généraliste" ) |>
+  drop_na({{varx}}) |>
+  ggplot() +
+  aes(fill = {{varx}}, x = ps_prochaine_g) +
+  geom_bar(stat = "count", position = "dodge", color = "gray40") +
+  labs(title = ttit,
+       subtitle = pzz,
+       y = "n",
+       caption = ttit)+
+  theme_light() +
+  scale_fill_discrete_qualitative(palette = "Dark 3") +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    axis.title.x = element_blank(),
+    legend.title = element_blank(),
+    axis.title.y = element_text(
+      size = 12,
+      angle = 0,
+      vjust = 0.5
+    ),
+    axis.text.x = element_text(
+      size = 12,
+      angle = 20,
+      vjust = 0.6
+    ),
+    axis.text.y = element_text(size = 12),
+    legend.position = "top"
+  )
+}
+```
+
+
+## Facteurs médicaux
+
+Certains critères n'ont que des réponses *non* & sont donc exclus de l'analyse.
+
+```{r}
+#| label: factmed
+
+ttmed |>
+  select(- c(1:4, 17,18,31,51)) |>
+     tbl_summary(missing = "no", by = ps) |>
+  modify_header(label ~ " ") %>%
+ bold_labels() |>
+   add_p() |>
+  bold_p() |>
+ pexptabph(lg = TRUE, exp = expx, nomfich = classeur, nomsheet = "factmed")
+```
+
+
+Avant même toute correction aucun critère n'approche de la significabilité ce qui était prévisible avec quatre niveaux dans la variable de tri & des réponses *oui* très rares pour tous les items.
+
+## Critère 2
+
+**La connaissance du professionnel de santé avant le suivi**
+
+
+```{r}
+#| label: crit2
+#| tbl-cap: "La connaissance du professionnel de santé avant le suivi"
+#| fig-cap: "La connaissance du professionnel de santé avant le suivi"
+#| fig-asp: 1
+
+critt(ttpat,d_connait_avant, "crit2")
+
+zz <- chisq.test(ttpat$ps_prochaine_g,ttpat$d_connait_avant, correct = FALSE)
+pzz <- paste0(beaup(zz$p.value,affp = 1))
+
+critf(ttpat,d_connait_avant,pzz,"La connaissance du professionnel de santé avant le suivi")
+
+```
+
+
+## Critère 3
+
+**Le sexe du professionnel de santé**
+
+```{r}
+#| label: crit3
+#| tbl-cap: "Le sexe du professionnel de santé"
+#| fig-cap: "Le sexe du professionnel de santé"
+#| fig-asp: 1
+
+critt(ttpat,d_sexe, "crit3")
+
+zz <- chisq.test(ttpat$ps_prochaine_g,ttpat$d_sexe, correct = FALSE)
+pzz <- paste0(beaup(zz$p.value,affp = 1))
+
+critf(ttpat,d_sexe,pzz,"Le sexe du professionnel de santé")
+```
+
+## Critère 4
+
+**L'âge du professionnel de santé**
+
+```{r}
+#| label: crit4
+#| tbl-cap: "L'âge du professionnel de santé"
+#| fig-cap: "L'âge du professionnel de santé"
+#| fig-asp: 1
+
+critt(ttpat,d_age, "crit4")
+
+zz <- chisq.test(ttpat$ps_prochaine_g,ttpat$d_age, correct = FALSE)
+pzz <- paste0(beaup(zz$p.value,affp = 1))
+
+critf(ttpat,d_age,pzz,"L'âge du professionnel de santé")
+```
+
+## Critère 5
+
+**La disponibilité du professionnel de santé**
+
+```{r}
+#| label: crit5
+#| tbl-cap: "La disponibilité du professionnel de santé"
+#| fig-cap: "La disponibilité du professionnel de santé"
+#| fig-asp: 1
+critt(ttpat,d_disponibilite, "crit5")
+
+zz <- chisq.test(ttpat$ps_prochaine_g,ttpat$d_disponibilite, correct = FALSE)
+pzz <- paste0(beaup(zz$p.value,affp = 1))
+
+critf(ttpat,d_disponibilite,pzz,"La disponibilité du professionnel de santé")
+```
+
+## Critère 6
+
+**La joignabilité du professionnel de santé**
+
+```{r}
+#| label: crit6
+#| tbl-cap: "La joignabilité du professionnel de santé"
+#| fig-cap: "La joignabilité du professionnel de santé"
+#| fig-asp: 1
+critt(ttpat,d_joignabilite, "crit6")
+
+zz <- chisq.test(ttpat$ps_prochaine_g,ttpat$d_joignabilite, correct = FALSE)
+pzz <- paste0(beaup(zz$p.value,affp = 1))
+
+critf(ttpat,d_joignabilite,pzz,"La joignabilité du professionnel de santé")
+```
+
+## Critère 7
+
+**La distance du cabinet au domicile**
+
+```{r}
+#| label: crit7
+#| tbl-cap: La distance du cabinet au domicile
+#| fig-cap: La distance du cabinet au domicile
+#| fig-asp: 1
+critt(ttpat,d_distance, "crit7")
+
+zz <- chisq.test(ttpat$ps_prochaine_g,ttpat$d_distance, correct = FALSE)
+pzz <- paste0(beaup(zz$p.value,affp = 1))
+
+critf(ttpat,d_distance,pzz,"La distance du cabinet au domicile")
+```
+
+## Critère 8
+
+**Le prix de la consultation**
+
+```{r}
+#| label: crit8
+#| tbl-cap: "Le prix de la consultation"
+#| fig-cap: "Le prix de la consultation"
+#| fig-asp: 1
+critt(ttpat,d_prix_consult, "crit8")
+
+zz <- chisq.test(ttpat$ps_prochaine_g,ttpat$d_prix_consult, correct = FALSE)
+pzz <- paste0(beaup(zz$p.value,affp = 1))
+
+critf(ttpat,d_prix_consult,pzz,"Le prix de la consultation")
+```
+
+## Critère 9
+
+**La durée de la consultation**
+
+```{r}
+#| label: crit9
+#| tbl-cap: "La durée de la consultation"
+#| fig-cap: "La durée de la consultation"
+#| fig-asp: 1
+critt(ttpat,d_duree_consult, "crit9")
+
+zz <- chisq.test(ttpat$ps_prochaine_g,ttpat$d_duree_consult, correct = FALSE)
+pzz <- paste0(beaup(zz$p.value,affp = 1))
+
+critf(ttpat,d_duree_consult,pzz,"La durée de la consultation")
+```
+
+## Critère 10
+
+**Les qualités humaines du professionnel de santé**
+
+```{r}
+#| label: crit10
+#| tbl-cap: Les qualités humaines du professionnel de santé
+#| fig-cap: Les qualités humaines du professionnel de santé
+#| fig-asp: 1
+critt(ttpat,d_humain, "crit10")
+
+zz <- chisq.test(ttpat$ps_prochaine_g,ttpat$d_humain, correct = FALSE)
+pzz <- paste0(beaup(zz$p.value,affp = 1))
+
+critf(ttpat,d_humain,pzz,"Les qualités humaines du professionnel de santé")
+```
+
+## Critère 11
+
+**La pratique de l’échographie au cabinet**
+
+```{r}
+#| label: crit11
+#| tbl-cap: La pratique de l’échographie au cabinet
+#| fig-cap: La pratique de l’échographie au cabinet
+#| fig-asp: 1
+critt(ttpat,d_echographie, "crit11")
+
+zz <- chisq.test(ttpat$ps_prochaine_g,ttpat$d_echographie, correct = FALSE)
+pzz <- paste0(beaup(zz$p.value,affp = 1))
+
+critf(ttpat,d_echographie,pzz,"La pratique de l’échographie au cabinet")
+```
+
+## Critère 12
+
+**La possibilité de suivre l’enfant après sa naissance **
+
+```{r}
+#| label: crit12
+#| tbl-cap: La possibilité de suivre l’enfant après sa naissance
+#| fig-cap: La possibilité de suivre l’enfant après sa naissance
+#| fig-asp: 1
+
+critt(ttpat,d_suivre_enfant, "crit12")
+
+zz <- chisq.test(ttpat$ps_prochaine_g,ttpat$d_suivre_enfant, correct = FALSE)
+pzz <- paste0(beaup(zz$p.value,affp = 1))
+
+critf(ttpat,d_suivre_enfant,pzz, "La possibilité de suivre l’enfant après sa naissance")
+```
+
+## Critère 13
+
+**Le cadre du cabinet **
+
+```{r}
+#| label: crit13
+#| tbl-cap: Le cadre du cabinet
+#| fig-cap: Le cadre du cabinet
+#| fig-asp: 1
+
+critt(ttpat,d_cadre_cabinet, "crit13")
+
+zz <- chisq.test(ttpat$ps_prochaine_g,ttpat$d_cadre_cabinet, correct = FALSE)
+pzz <- paste0(beaup(zz$p.value,affp = 1))
+
+critf(ttpat,d_cadre_cabinet,pzz,"Le cadre du cabinet ")
+```
+
+## Critère 14
+
+**Le suivi avec le médecin traitant **
+
+```{r}
+#| label: crit14
+#| tbl-cap: Le suivi avec le médecin traitant
+
+ttpat |>
+  select(ps_prochaine_g, 43:50 ) |>
+     tbl_summary(missing = "no", by = ps_prochaine_g) |>
+  modify_header(label ~ " ") %>%
+ bold_labels() |>
+   add_p() |>
+  bold_p() |>
+ pexptabph(lg = TRUE, exp = expx, nomfich = classeur, nomsheet = "crit14")
+```
+\\clearpage
+
+## Technique {.appendix}
+
+Les données discrètes ont été présentées en pourcentage puis comparées par un test exact du $\chi^2$. Les données numériques ont été présentées par leur moyenne & l'écart-type puis comparées par le test du t de Student après vérification de l'égalité de variance ou par une analyse de variance (ANOVA).
+
+Un modèle de régression logistique a été employé. Ce modèle de régression a été limité aux facteurs associés à la réponse en utilisant les critères ayant une la réponse significative avec un seuil p.value < 0,5 lors de l’étape précédente. Une recherche du meilleur modèle a été réalisée par un step-by-step descendant basé sur le critère d’information d’Akaike. Cette étape a été réalisée après imputation des données manquantes mais le résultat final a été calculé sur les données vraies.
 
 L'analyse statistique a été réalisée avec le logiciel **R** [@rstat] & diverses librairies en particulier celles du `tidyverse` [@tidy] & `baseph` [@baseph].
-
