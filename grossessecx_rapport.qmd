@@ -64,7 +64,7 @@ cache: false
 
 ```{r setup, include=FALSE}
 expx <- FALSE
-classeur <- "grossessescx.xls"
+classeur <- "grossessescx2x.xls"
 ```
 
 ```{r}
@@ -111,12 +111,36 @@ var_label(ttpat) <- bnompat
 
 ## Recodage de ttpat$nb_enfants en ttpat$nb_enfants_rec
 ttpat <- ttpat |>
-  mutate(nb_enfants = as.factor(if_else(nb_enfants == 1, "Primipare", "Multipare"))) |>
-  mutate(across(starts_with("d_"),\(dd){fct_recode(dd,
-                      "Pas ou peu important(es)" = "Pas important(es)",
-                      "Pas ou peu important(es)" = "Peu important(es)",
-                      "Important(es)" = "Très important(es)")}))
-
+  mutate(nb_enfants = as.factor(if_else(nb_enfants == 1, "Primipare", "Multipare"))) |> 
+mutate(across(starts_with("d_"),\(dd){fct_recode(dd,
+                       "Pas ou peu important(es)" = "Pas important(es)",
+    "Pas ou peu important(es)" = "Peu important(es)",
+    "Important(es) ou Très important(es)" = "Important(es)",
+    "Important(es) ou Très important(es)" = "Très important(es)")}))
+# Réordonnancement de ttpat$nb_enfants
+ttpat$nb_enfants <- ttpat$nb_enfants %>%
+  fct_relevel(
+    "Primipare", "Multipare"
+  )
+## Réordonnancement de ttpat$pb_sante
+ttpat$pb_sante <- ttpat$pb_sante %>%
+  fct_relevel(
+    "Non", "Oui, vomissements, reflux gastrique, lumbago, sciatique, infection urinaire, mycoses",
+    "Oui, grossesse pathologique"
+  )
+## Recodage de ttpat$age en ttpat$age
+ttpat$age <- cut(ttpat$age,
+  include.lowest = TRUE,
+  right = FALSE,
+  dig.lab = 4,
+  breaks = c(15, 20, 25, 30, 35, 40, 50),
+  labels = c("15-20 ans","20-25 ans","25-30 ans","30-35 ans","35-40 ans","Plus de 40 ans"))
+## Réordonnancement de ttpat$pac_secu
+ttpat$pac_secu <- ttpat$pac_secu %>%
+  fct_relevel(
+    "Sécurité sociale seule", "Sécurité sociale + mutuelle",
+    "AME, PUMa ...."
+  )
 ## Réordonnancement de ttpat$niveau_etude
 ttpat$niveau_etude <- ttpat$niveau_etude %>%
   fct_relevel(
@@ -154,7 +178,7 @@ ttpat$duree_trajet_convenable <- ttpat$duree_trajet_convenable %>%
 ## Réordonnancement de ttpat$prix_convenable
 ttpat$prix_convenable <- ttpat$prix_convenable %>%
   fct_relevel(
-    "Moins de 29 euros", "Entre 30 et 59 euros", "Entre 60 et 89 euros"
+    "Moins de 29 euros", "Entre 30 et 59 euros", "-ntre 60 et 89 euros"
   )
 ## Réordonnancement de ttpat$duree_consult_convenable
 ttpat$duree_consult_convenable <- ttpat$duree_consult_convenable %>%
@@ -178,6 +202,8 @@ ttpat$mg_gynecologie <- ttpat$mg_gynecologie %>%
     "Oui et il fait mon suivi gynécologique", "Oui mais il ne fait pas mon suivi gynécologique",
     "Non", "Je ne sais pas"
   )
+#
+var_label(ttpat) <- bnompat
 ```
 
 # Qualité des données
@@ -194,7 +220,7 @@ vis_miss(show_perc_col = TRUE)
 ```
 
 ```{r}
-#| label: cor1
+#| label: cor1 ans
 #| fig-cap: Tableau de corrélation
 #| fig-asp: 1
 ttpat |>
@@ -256,24 +282,29 @@ ttpat |>
   modify_header(label ~ " ") %>%
  bold_labels() |>
     add_n() |>
- gexptabph(lg = FALSE, exp = expx, nomfich = classeur, nomsheet = "descpat1")
+ gexptabph(lg = FALSE, exp = expx, nomfich = classeur, nomsheet = "descsuivi")
 ```
 
 
 ```{r}
 #| label: desc2
 #| tbl-cap: Déterminants & caractérisques
-
+## Réordonnancement de ttpat$d_connait_avant
+ttpat <- ttpat |> 
+mutate(across(starts_with("d_"),\(x){fct_relevel(x,
+    "Pas important(es)", "Peu important(es)", "Important(es)",
+    "Très important(es)")}
+  ))
 zz <- ttpat |>
 select(starts_with("d_"))
   names(zz) <- bnompat[13:24]
 
 zz |>
-  pivot_longer(1:12) |>
+  pivot_longer(1:12) |> 
   tbl_cross( col = value, row = name, percent = "row", margin = NULL, missing = "no",
              label = list(name ~ " ", value = "Déterminant classé comme")) |>
- bold_labels() |>
- gexptabph(lg = FALSE, exp = expx, nomfich = classeur, nomsheet = "descpat2")
+ bold_labels() |> 
+ gexptabph(lg = FALSE, exp = TRUE, nomfich = classeur, nomsheet = "desc2x")
 ```
 
 ```{r}
@@ -288,6 +319,8 @@ ttpat |>
    add_n() |>
  gexptabph(lg = FALSE, exp = expx, nomfich = classeur, nomsheet = "descpat3")
 ```
+
+Ce tableau résume les critères secondaires 2 à 13.
 
 ```{r}
 #| label: desc4
@@ -378,19 +411,25 @@ ttpat |>
 #| fig-asp: 1
 
 tit <- "Choix d'un professionnel de santé pour une prochaine grossesse"
-ttpat |>
-  count(ps_prochaine_g) |>
-  mutate(perc = 100 * n / nrow(ttpat)) |>
-  mutate(ps_prochaine_g = fct_reorder(ps_prochaine_g, desc(perc))) %>%
+nn <- nrow(ttpat)
+nprof <- table(ttpat$ps_prochaine_g)
+tprof <- prop.table(nprof)
+nom <- levels(ttpat$ps_prochaine_g)
+dif <- 1.956*sqrt((tprof*(1-tprof)/nn))
+prof <- tibble(nom,tprof*100,(tprof-dif)*100,(tprof+dif)*100)
+names(prof) <- c("nom","pc","difa", "difb")
+#
+prof |> 
+  mutate(nom = fct_reorder(nom, desc(pc))) %>%
   ggplot() +
-  aes(x= ps_prochaine_g, y = perc , fill = ps_prochaine_g) +
-  geom_bar(stat = 'identity') +
+  aes(x = nom, y = pc, fill = nom) +
+  geom_bar(sta = "identity") +
+  geom_errorbar(aes(ymin = difa, ymax = difb), width = .6) +
     labs(title = tit,
-       y = "n",
-       caption = tit)+
+       y = "%",
+       caption = tit) +
   theme_light() +
-  scale_fill_discrete_qualitative(palette = "Dynamic") +
-  scale_y_continuous(breaks = c(100,200)) +
+  scale_fill_discrete_qualitative(palette = "Dark 3") +
   theme(
     plot.title = element_text(size = 16, face = "bold"),
     plot.subtitle = element_text(size = 12),
@@ -399,7 +438,7 @@ ttpat |>
     axis.title.y = element_text(
       size = 12,
       angle = 0,
-      vjust = 1
+      vjust = 0.5
     ),
     axis.text.x = element_text(
       size = 12 ,
@@ -442,6 +481,9 @@ ttpat |>
   bold_p() |>
  gexptabph(lg = FALSE, exp = expx, nomfich = classeur, nomsheet = "facttab2")
 ```
+
+
+
 
 ```{r}
 #| label: suiv22
@@ -779,6 +821,7 @@ critf(ttpat,d_cadre_cabinet,pzz,"Le cadre du cabinet ")
 
 **Le suivi avec le médecin traitant **
 
+
 ```{r}
 #| label: crit14
 #| tbl-cap: Le suivi avec le médecin traitant
@@ -788,10 +831,25 @@ ttpat |>
      tbl_summary(missing = "no", by = ps_prochaine_g) |>
   modify_header(label ~ " ") %>%
  bold_labels() |>
-   add_p() |>
+   add_p(test = list(all_continuous() ~ "t.test", all_categorical() ~ "chisq.test")) |>
   bold_p() |>
- pexptabph(lg = TRUE, exp = expx, nomfich = classeur, nomsheet = "crit14")
+ gexptabph(lg = FALSE, exp = expx, nomfich = classeur, nomsheet = "crit14")
 ```
+
+```{r}
+#| label: crit14desc
+#| tbl-cap: Le suivi avec le médecin traitant
+
+ttpat |>
+  select(43:50 ) |>
+     tbl_summary(missing = "no") |>
+  add_n() |> 
+  modify_header(label ~ " ") %>%
+ bold_labels() |>
+ gexptabph(lg = TRUE, exp = expx, nomfich = classeur, nomsheet = "crit14desc")
+```
+
+
 \\clearpage
 
 ## Technique {.appendix}

@@ -1,0 +1,321 @@
+---
+title: "Grossesse Cx"
+subtitle: "Rapport Statistique -- suite"
+lang: fr
+author:
+  - name: "Dr Philippe MICHEL"
+    affiliations:
+      name: "Hôpital NOVO"
+      department: "Unité de Soutien à la Recherche Clinique"
+format:
+ titlepage-pdf:
+  titlepage: bg-image
+  titlepage-bg-image: "novo_usrc.png"
+  logo-space-after: "0\\baselineskip"
+  documentclass: scrreprt
+  classoption: ["oneside", "open=any"]
+  number-sections: true
+  titlepage-footer: "Corinne SIVARD Services des urgences -- Hôpital NOVO (Site Pontoise)\\newline \\newline Dr Laurine CLEDASSOU – Service des Urgences -- Hôpital NOVO (Site Pontoise)\\newline Dr Olivier FANCELLI Services des urgences -- Hôpital NOVO (Site Pontoise)\\newline Pr Christophe PONCELET Service de Gynécologie-Obstétrique -- Hôpital NOVO (Site Pontoise)\\newline\\newline \\newline Choix des professionnels de santé par les patientes pour le suivi de leur grossesse\\newline Étude monocentrique \\newline \\newline Chef de Projet : Mme Lynda BENAMMAR\\newline \\newline \\today"
+titlepage-theme:
+  title-fontstyle: ["Huge", "bfseries"]
+  title-color: novo
+  subtitle-color: novo
+  subtitle-fontstyle: ["huge"]
+  logo-size: "0.2\\textheight"
+  vrule-width: "0.1cm"
+  vrule-color: novo
+include-in-header:
+   text: |
+    \definecolor{novo}{HTML}{27484b}
+    \usepackage{siunitx}
+    \mathcode`\.="013B
+df-print : kable
+jss-pdf:
+  keep-tex: true
+pdf-engine: lualatex
+keep-tex: true
+number-sections: true
+toc: true
+lof: true
+lot: true
+mainfont: Faune
+mainfontoptions:
+  - Ligatures=TeX
+sansfont: Myriad Pro
+sansfontoptions:
+  - Ligatures=TeX
+fig-cap-location: bottom
+tbl-cap-location: top
+papersize: a4
+editor: source
+bibliography: stat.bib
+cite-method: biblatex
+csl: jama.csl
+#reference-location: margin
+#citation-location: margin
+license: "MIT"
+echo: false
+warning: false
+message: false
+cache: true
+---
+
+```{r setup, include=FALSE}
+expx <- FALSE
+classeur <- "grossessecxsuite.xls"
+```
+
+```{r}
+#| label: lib
+
+library(baseph)
+library(readODS)
+library(janitor)
+library(corrplot)
+library(tidyverse)
+library(lubridate)
+library(labelled)
+library(kableExtra)
+library(forestmodel)
+library(epiDisplay)
+library(confintr)
+library(missMDA)
+library(colorspace)
+library(visdat)
+library(gtsummary)
+```
+
+
+
+```{r}
+#| label: import
+
+rm(ttpat)
+
+bnom <- read_delim("datas/bnommed.csv", delim =";")
+bnommed <- bnom$nom
+nax <- c("NA","na","NR","","N/A","ND", "médical", "Autre")
+ttmed <- read_csv2("datas/gcxmed.csv",na = nax) |>
+ mutate_if(is.character, as.factor) |>
+ janitor::clean_names()
+var_label(ttmed) <- bnommed
+#
+
+#
+bnom <- read_delim("datas/bnompat.csv", delim = ";")
+bnompat <- bnom$nom
+ttpat <- read_csv2("datas/patientes.csv",na = nax) |>
+ mutate_if(is.character, as.factor) |>
+ janitor::clean_names()
+var_label(ttpat) <- bnompat
+
+## Recodage de ttpat$nb_enfants en ttpat$nb_enfants_rec
+ttpat <- ttpat |>
+  mutate(nb_enfants = as.factor(if_else(nb_enfants == 1, "Primipare", "Multipare"))) |>
+  mutate(across(starts_with("d_"),\(dd){fct_recode(dd,
+                      "Pas ou peu important(es)" = "Pas important(es)",
+                      "Pas ou peu important(es)" = "Peu important(es)",
+                      "Important(es)" = "Très important(es)")}))
+## Réordonnancement de ttpat$nb_enfants
+ttpat$nb_enfants <- ttpat$nb_enfants %>%
+  fct_relevel(
+    "Primipare", "Multipare"
+  )
+## Réordonnancement de ttpat$pb_sante
+ttpat$pb_sante <- ttpat$pb_sante %>%
+  fct_relevel(
+    "Non", "Oui, vomissements, reflux gastrique, lumbago, sciatique, infection urinaire, mycoses",
+    "Oui, grossesse pathologique"
+  )
+## Recodage de ttpat$age en ttpat$age
+ttpat$aged <- cut(ttpat$age,
+  include.lowest = TRUE,
+  right = FALSE,
+  dig.lab = 4,
+  breaks = c(15, 20, 25, 30, 35, 40, 50),
+  labels = c("15-20 ans","20-25 ans","25-30 ans","30-35 ans","35-40 ans","Plus de 40 ans"))
+## Réordonnancement de ttpat$pac_secu
+ttpat$pac_secu <- ttpat$pac_secu %>%
+  fct_relevel(
+    "Sécurité sociale seule", "Sécurité sociale + mutuelle",
+    "AME, PUMa ...."
+  )
+## Réordonnancement de ttpat$niveau_etude
+ttpat$niveau_etude <- ttpat$niveau_etude %>%
+  fct_relevel(
+    "Aucun diple", "Brevet des collèges, CAP, BEP", "Baccalauréat ou équivalent",
+    "1er cycle universitaire, niveau BAC +2", "2e cycle universitaire, niveau BAC +3",
+    "3e cycle universitaire, niveau BAC +5 et plus")
+
+## Réordonnancement de ttpat$ans_connait_ps
+ttpat$ans_connait_ps <- ttpat$ans_connait_ps %>%
+  fct_relevel(
+    "Moins de 5 ans", "De 5 ans à 10 ans", "Plus de 10 ans"
+  )
+## Réordonnancement de ttpat$age_ideal_ps
+ttpat$age_ideal_ps <- ttpat$age_ideal_ps %>%
+  fct_relevel(
+    "De moins de 40 ans", "De 40 à 60 ans", "De plus de 60 ans",
+    "Pas de préférence"
+  )
+## Réordonnancement de ttpat$delai_rdv
+ttpat$delai_rdv <- ttpat$delai_rdv %>%
+  fct_relevel(
+    "Dans les 15 jours", "Dans les 7 jours", "Dans les 48h"
+  )
+## Réordonnancement de ttpat$delai_avis
+ttpat$delai_avis <- ttpat$delai_avis %>%
+  fct_relevel(
+    "Dans les 24h", "Dans les 48h", "Dans les 7 jours"
+  )
+## Réordonnancement de ttpat$duree_trajet_convenable
+ttpat$duree_trajet_convenable <- ttpat$duree_trajet_convenable %>%
+  fct_relevel(
+    "Moins de 15 minutes", "Entre 15 et 29 minutes", "Entre 30 et 44 minutes",
+    "45 minutes et plus"
+  )
+## Réordonnancement de ttpat$prix_convenable
+ttpat$prix_convenable <- ttpat$prix_convenable %>%
+  fct_relevel(
+    "Moins de 29 euros", "Entre 30 et 59 euros", "-ntre 60 et 89 euros"
+  )
+## Réordonnancement de ttpat$duree_consult_convenable
+ttpat$duree_consult_convenable <- ttpat$duree_consult_convenable %>%
+  fct_relevel(
+    "Moins de 15 minutes", "Entre 15 et 29 minutes", "Entre 30 et 44 minutes",
+    "45 minutes et plus"
+  )
+## Réordonnancement de ttpat$age_mg
+ttpat$age_mg <- ttpat$age_mg %>%
+  fct_relevel(
+    "Moins de 40 ans", "De 40 à 60 ans", "Plus de 60 ans"
+  )
+## Réordonnancement de ttpat$ans_connais_mg
+ttpat$ans_connais_mg <- ttpat$ans_connais_mg %>%
+  fct_relevel(
+    "Moins de 5 ans", "De 5 ans à 10 ans", "Plus de 10 ans"
+  )
+## Réordonnancement de ttpat$mg_gynecologie
+ttpat$mg_gynecologie <- ttpat$mg_gynecologie %>%
+  fct_relevel(
+    "Oui et il fait mon suivi gynécologique", "Oui mais il ne fait pas mon suivi gynécologique",
+    "Non", "Je ne sais pas"
+  )
+#
+#var_label(ttpat) <- bnompat
+```
+
+```{r}
+#| label: sup
+ttmed$ps <- ttpat$ps_prochaine_g
+ttmed <- ttmed |>
+drop_na(ps)
+
+ttpat <- ttpat |>
+  drop_na(ps_prochaine_g)
+```
+
+#  critère d'âge de faire une moyenne et médiane, et d'avoir les extrêmes (min, max) 
+
+::: {.callout-note}
+Note that there are five types of callouts, including:
+`note`, `warning`, `important`, `tip`, and `caution`.
+:::
+```{r}
+#| label: descage
+#| tbl-cap: Âge des parturientes
+ttpat |> 
+  select(age) |> 
+  tbl_summary( type = all_continuous() ~ "continuous2",
+    statistic = all_continuous() ~ c(
+      "{N_nonmiss}",
+      "{mean} ± {sd}",
+      "{median} ({p25}, {p75})",
+      "{min}, {max}"
+    )) |> 
+    modify_header(label ~ " ") %>%
+ bold_labels() |>
+    add_n() |>
+ gexptabph(lg = FALSE, exp = expx, nomfich = classeur, nomsheet = "descage")
+
+```
+
+
+# Tableau 2.2
+
+*faire la moyenne des professionnels de santé du T1 et T2, idem structure c'est possible ? car les données sont similaires au T1 et T2*
+
+Faire des moyennes sur des données catégorielles ?  Ça n'a aucun sens.
+
+
+```{r}
+#| label: descsuivi
+#| tbl-cap: Tableau descriptif - Suivi actuel
+
+ttpat |>
+ dplyr::select(7:12) |>
+ tbl_summary(missing = "no") |>
+  modify_header(label ~ " ") %>%
+ bold_labels() |>
+    add_n() |>
+ gexptabph(lg = FALSE, exp = expx, nomfich = classeur, nomsheet = "descpat1")
+```
+
+# Tableau 2.4 : est ce possible d’intégrer 389-97= 292 patientes ont voté "pas de préférence" 
+
+Fait dans la version corrigée suite à la réunion que je te joins (V1.1).
+
+# Médecin généraliste
+
+Je refais le tableau avec des tests du $\chi^2$.
+
+```{r}
+#| label: crit14
+#| tbl-cap: Le suivi avec le médecin traitant
+
+ttpat |>
+  select(ps_prochaine_g, 43:50 ) |>
+     tbl_summary(missing = "no", by = ps_prochaine_g) |>
+  modify_header(label ~ " ") %>%
+ bold_labels() |>
+   add_p(test = list(all_continuous() ~ "t.test", all_categorical() ~ "chisq.test")) |>
+  bold_p() |>
+ gexptabph(lg = FALSE, exp = expx, nomfich = classeur, nomsheet = "crit14")
+```
+
+#  Analyses univariée et multivariée  : peut on appeler cette partie comme cela ??
+
+Pourquoi pas. Demande plutôt à M. Poncelet, il sera de mailleur conseil que moi pour la rédaction.
+
+# Tableau 3.1 : les primipares (1 enfant) s'orientent-elles plus vers un professionnel ?
+
+Réponse dans la version 1.1 (ns)
+
+
+# 4.1 Facteurs Médicaux
+
+Analyse : sur 100% des patientes ayant un diabète, combien choisissent un GO, SF…
+
+```{r}
+#| label: factmed
+
+ttmed |>
+  select(c(29,53)) |>
+     tbl_summary(missing = "no", by = ps) |>
+  modify_header(label ~ " ") %>%
+ bold_labels() |>
+   add_p() |>
+  bold_p() |>
+ gexptabph(lg = FALSE, exp = expx, nomfich = classeur, nomsheet = "factmed")
+```
+
+
+4.14 Critère14
+Le suivi avec le médecin traitant : je n'ai pas la fin du tableau je ne vois pas le petit p
+
+Voir le tableau plus haut
+
+
+
+
+

@@ -34,4 +34,8 @@ datas
 _extensions
 QTDublinIrish.otf
 Doc
-plan_analyse_gtossessecx.pdf
+*.pdf
+*.tex*
+*.html
+*.xls
+

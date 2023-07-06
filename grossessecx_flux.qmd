@@ -1,0 +1,212 @@
+---
+title: "GrossesseCx flux"
+author: "Philippe MICHEL"
+format: 
+  html:
+    theme: united
+    page-layout: full
+    toc: true
+    toc-location: left
+    number-sections: true
+    embed-resources: true
+    smooth-scroll: true
+    code-fold: false
+    code-tools: true
+lang: fr
+language: 
+  title-block-author-single: "Auteur"
+license: "MIT"
+echo: false
+warning: false
+message: false
+cache: true
+---
+
+```{r}
+#| label: lib
+
+library(baseph)
+library(readODS)
+library(janitor)
+library(corrplot)
+library(tidyverse)
+library(lubridate)
+library(labelled)
+library(kableExtra)
+library(forestmodel)
+library(epiDisplay)
+library(confintr)
+library(missMDA)
+library(colorspace)
+library(visdat)
+library(gtsummary)
+library(networkD3)
+library(dplyr)
+```
+
+
+
+```{r}
+#| label: import
+
+rm(ttpat)
+
+nax <- c("NA","na","NR","","N/A","ND", "médical", "Autre")
+
+#
+bnom <- read_delim("datas/bnompat.csv", delim = ";")
+bnompat <- bnom$nom
+ttpat <- read_csv2("datas/patientes.csv",na = nax) |>
+ mutate_if(is.character, as.factor) |>
+ janitor::clean_names()
+var_label(ttpat) <- bnompat
+
+## Recodage de ttpat$nb_enfants en ttpat$nb_enfants_rec
+ttpat <- ttpat |>
+  mutate(nb_enfants = as.factor(if_else(nb_enfants == 1, "Primipare", "Multipare"))) |>
+  mutate(across(starts_with("d_"),\(dd){fct_recode(dd,
+                      "Pas ou peu important(es)" = "Pas important(es)",
+                      "Pas ou peu important(es)" = "Peu important(es)",
+                      "Important(es)" = "Très important(es)")}))
+## Réordonnancement de ttpat$nb_enfants
+ttpat$nb_enfants <- ttpat$nb_enfants %>%
+  fct_relevel(
+    "Primipare", "Multipare"
+  )
+## Réordonnancement de ttpat$pb_sante
+ttpat$pb_sante <- ttpat$pb_sante %>%
+  fct_relevel(
+    "Non", "Oui, vomissements, reflux gastrique, lumbago, sciatique, infection urinaire, mycoses",
+    "Oui, grossesse pathologique"
+  )
+## Recodage de ttpat$age en ttpat$age
+ttpat$aged <- cut(ttpat$age,
+  include.lowest = TRUE,
+  right = FALSE,
+  dig.lab = 4,
+  breaks = c(15, 20, 25, 30, 35, 40, 50),
+  labels = c("15-20 ans","20-25 ans","25-30 ans","30-35 ans","35-40 ans","Plus de 40 ans"))
+## Réordonnancement de ttpat$pac_secu
+ttpat$pac_secu <- ttpat$pac_secu %>%
+  fct_relevel(
+    "Sécurité sociale seule", "Sécurité sociale + mutuelle",
+    "AME, PUMa ...."
+  )
+## Réordonnancement de ttpat$niveau_etude
+ttpat$niveau_etude <- ttpat$niveau_etude %>%
+  fct_relevel(
+    "Aucun diple", "Brevet des collèges, CAP, BEP", "Baccalauréat ou équivalent",
+    "1er cycle universitaire, niveau BAC +2", "2e cycle universitaire, niveau BAC +3",
+    "3e cycle universitaire, niveau BAC +5 et plus")
+
+## Réordonnancement de ttpat$ans_connait_ps
+ttpat$ans_connait_ps <- ttpat$ans_connait_ps %>%
+  fct_relevel(
+    "Moins de 5 ans", "De 5 ans à 10 ans", "Plus de 10 ans"
+  )
+## Réordonnancement de ttpat$age_ideal_ps
+ttpat$age_ideal_ps <- ttpat$age_ideal_ps %>%
+  fct_relevel(
+    "De moins de 40 ans", "De 40 à 60 ans", "De plus de 60 ans",
+    "Pas de préférence"
+  )
+## Réordonnancement de ttpat$delai_rdv
+ttpat$delai_rdv <- ttpat$delai_rdv %>%
+  fct_relevel(
+    "Dans les 15 jours", "Dans les 7 jours", "Dans les 48h"
+  )
+## Réordonnancement de ttpat$delai_avis
+ttpat$delai_avis <- ttpat$delai_avis %>%
+  fct_relevel(
+    "Dans les 24h", "Dans les 48h", "Dans les 7 jours"
+  )
+## Réordonnancement de ttpat$duree_trajet_convenable
+ttpat$duree_trajet_convenable <- ttpat$duree_trajet_convenable %>%
+  fct_relevel(
+    "Moins de 15 minutes", "Entre 15 et 29 minutes", "Entre 30 et 44 minutes",
+    "45 minutes et plus"
+  )
+## Réordonnancement de ttpat$prix_convenable
+ttpat$prix_convenable <- ttpat$prix_convenable %>%
+  fct_relevel(
+    "Moins de 29 euros", "Entre 30 et 59 euros", "-ntre 60 et 89 euros"
+  )
+## Réordonnancement de ttpat$duree_consult_convenable
+ttpat$duree_consult_convenable <- ttpat$duree_consult_convenable %>%
+  fct_relevel(
+    "Moins de 15 minutes", "Entre 15 et 29 minutes", "Entre 30 et 44 minutes",
+    "45 minutes et plus"
+  )
+## Réordonnancement de ttpat$age_mg
+ttpat$age_mg <- ttpat$age_mg %>%
+  fct_relevel(
+    "Moins de 40 ans", "De 40 à 60 ans", "Plus de 60 ans"
+  )
+## Réordonnancement de ttpat$ans_connais_mg
+ttpat$ans_connais_mg <- ttpat$ans_connais_mg %>%
+  fct_relevel(
+    "Moins de 5 ans", "De 5 ans à 10 ans", "Plus de 10 ans"
+  )
+## Réordonnancement de ttpat$mg_gynecologie
+ttpat$mg_gynecologie <- ttpat$mg_gynecologie %>%
+  fct_relevel(
+    "Oui et il fait mon suivi gynécologique", "Oui mais il ne fait pas mon suivi gynécologique",
+    "Non", "Je ne sais pas"
+  )
+#
+ttpat <- ttpat |>
+  drop_na(ps_prochaine_g)
+```
+
+
+```{r}
+#| label: matrice
+
+## Recodage de ttpat$suivi_t2 en ttpat$t2
+ttpat$t2 <- ttpat$suivi_t2 %>%
+  fct_recode(
+    " Gynécologue médical" = "Gynécologue médical",
+    " Gynécologue obstétricien" = "Gynécologue obstétricien",
+    " Médecin généraliste" = "Médecin généraliste",
+    " Sage femme" = "Sage femme"
+  )
+#
+zz <- table(ttpat$t2, ttpat$ps_prochaine_g)
+links <- as.data.frame(zz) |> 
+  filter(Freq!= 0)
+#
+nodes <- data.frame(
+  name=c(as.character(ttpat$t2), as.character(ttpat$ps_prochaine_g)) %>%
+    unique()
+)
+#
+links$IDsource <- match(links$Var1, nodes$name)-1 
+links$IDtarget <- match(links$Var2, nodes$name)-1
+```
+
+Le graphique montre le lien entre le professionnel qui a fait le suivi au 2<sup>e</sup> trimestre (à gauche) & le professionnel souhaité pour la prochaine grossesse (à droite).
+
+```{r}
+#| label: grphflux
+#| fig-cap: Du professionnel actuel au professionnel souhaité
+
+colorf <-
+  'd3.scaleOrdinal() .domain([ " Gynécologue médical"," Gynécologue obstétricien"," Médecin généraliste"," Sage femme", "Gynécologue médical", "Gynécologue obstétricien" , "Médecin généraliste"  ,"Sage femme"]) .range(["green", "blue", yellow", "purple", "green", "blue", yellow", "purple"])'
+
+
+sankeyNetwork(
+  Links = links,
+  Nodes = nodes,
+  Source = "IDsource",
+  Target = "IDtarget",
+  Value = "Freq",
+  NodeID = "name",
+  sinksRight = FALSE,
+  fontSize = 18,
+  margin = list(0, 0, 0, 0),
+  LinkGroup = "Var2"
+)
+
+
+```
+
